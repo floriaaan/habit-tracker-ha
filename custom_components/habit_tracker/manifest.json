@@ -1,0 +1,18 @@
+{
+  "domain": "habit_tracker",
+  "name": "Habit Tracker",
+  "codeowners": [
+    "@floriaaan"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "frontend",
+    "http"
+  ],
+  "documentation": "https://github.com/floriaaan/habit-tracker-ha",
+  "integration_type": "service",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/floriaaan/habit-tracker-ha/issues",
+  "requirements": [],
+  "version": "0.1.1"
+}
