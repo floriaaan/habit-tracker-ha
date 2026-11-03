@@ -1,88 +1,158 @@
-# Habit Tracker pour Home Assistant
+# Habit Tracker for Home Assistant
 
-Intégration et carte Lovelace connectées à l'API Habit Tracker : entités créées
-automatiquement, anneaux par catégorie, cases, incréments, semaines et historique.
-Home Assistant **2026.10.2 minimum**. Un backend Habit Tracker compatible avec
-`/api/v1/dashboard` et `/api/v1/dashboard/events` doit déjà être démarré et joignable
-depuis HA. HACS installe le client HA, pas le serveur Rust ni un add-on.
+**Your habits, progress rings and daily check-ins inside Home Assistant.**
 
-## Installation HACS
+English · [Français](README.fr.md)
 
-Ce dépôt fournit uniquement le client Home Assistant et sa carte, sans code
-serveur ni données personnelles. Ajouter l'URL :
+This integration connects an existing Habit Tracker backend to Home Assistant.
+It creates entities for your habits and includes a Lovelace card for category
+rings, checkboxes, quantities, weekly comparisons and a 13-week heatmap.
+Buttons record real backend events; changes arrive through a live SSE connection,
+with a 60-second polling fallback.
 
-```text
-https://github.com/floriaaan/habit-tracker-ha
-```
+The card is bundled with the integration and loads automatically. No separate
+frontend, Mushroom cards, manual JavaScript resource or helper entities are required.
 
-1. Dans **HACS → ⋮ → Dépôts personnalisés**, ajouter cette URL GitHub,
-   catégorie **Integration**. Il n'est pas nécessaire d'ajouter une
-   seconde entrée de type Dashboard.
-2. Chercher **Habit Tracker**, télécharger puis redémarrer Home Assistant.
-3. **Paramètres → Appareils et services → Ajouter une intégration → Habit Tracker**.
-   Saisir l'URL du backend et un PAT (ou token de compte de service) du bon
-   utilisateur avec `habits:read`, `statistics:read`, `entries:write`.
-   HTTPS par défaut ; HTTP exige l'option explicite pour une liaison locale fiable.
-4. Recharger le navigateur. La carte est chargée automatiquement par l'intégration,
-   y compris avec un dashboard YAML. Aucune copie dans `/config/www`, ressource
-   Lovelace manuelle ou helper `input_boolean`/`input_number` n'est nécessaire.
-5. Ajouter une carte manuelle :
+## Installation
+
+### 1. Prepare the backend connection
+
+You need:
+
+- **Home Assistant 2026.10.2 or newer** and [HACS](https://www.hacs.dev/docs/use/).
+- An existing Habit Tracker backend providing `/api/v1/dashboard` and
+  `/api/v1/dashboard/events`, reachable from the HA server.
+- A Habit Tracker PAT or service-account token with these scopes:
+
+| Scope | Purpose |
+| --- | --- |
+| `habits:read` | Read habits and their settings |
+| `statistics:read` | Read dashboard progress and history |
+| `entries:write` | Check/uncheck habits and add/remove quantities |
+
+Ask the backend administrator for its **base URL** and a token with a suitable
+expiration. Use a Habit Tracker token, distinct from GitHub credentials or a
+Home Assistant long-lived access token. Habits are created through the backend
+API; this integration displays and updates them.
+
+### 2. Add the repository in HACS
+
+1. Open **HACS** in Home Assistant.
+2. Open **⋮ → Custom repositories**.
+3. Add this URL:
+
+   ```text
+   https://github.com/floriaaan/habit-tracker-ha
+   ```
+
+4. Select **Integration** as the type and click **Add**.
+5. Find **Habit Tracker**, open it and download the latest release.
+6. **Restart Home Assistant** to load the Python integration.
+
+This single HACS entry includes both the integration and the card.
+
+### 3. Configure Habit Tracker in Home Assistant
+
+1. Go to **Settings → Devices & services → Add integration**.
+2. Search for **Habit Tracker** and select it.
+3. Fill in the connection form:
+
+   | Field | Value |
+   | --- | --- |
+   | **API URL** | Backend base URL, without `/api/v1` |
+   | **API token** | Habit Tracker token prepared in step 1 |
+   | **Allow HTTP on a trusted local connection** | Enable only for a trusted local HTTP connection; HTTPS is the default |
+
+4. Submit the form. HA checks the URL, token and read scopes before saving.
+5. Open the integration's entities and find the **Dashboard** sensor. Its usual
+   entity ID is `sensor.habit_tracker_dashboard`; copy the actual ID chosen by HA.
+
+The URL must work **from the HA server**. `localhost` points to HA itself, and a
+Docker-only hostname works only when the containers share its network. For HTTPS,
+use a certificate trusted by HA. The integration does not follow redirects with
+your token.
+
+### 4. Add your first card
+
+1. Reload your browser after configuring the integration.
+2. Open an editable dashboard, or create one in **Settings → Dashboards**.
+3. Choose **Edit dashboard → Add card → Manual**.
+4. Paste this YAML, replacing the entity ID if necessary:
+
+   ```yaml
+   type: custom:habit-tracker-card
+   entity: sensor.habit_tracker_dashboard
+   mode: rings
+   ```
+
+5. Save the card. It displays the real progress of your backend habits.
+
+For the complete layout, use [dashboard.yaml](custom_components/habit_tracker/www/dashboard.yaml)
+in a new dashboard's **Raw configuration editor**, replacing the sensor ID throughout.
+The file contains a full dashboard, including views and sections.
+
+### 5. Choose the views you want
+
+Add more manual cards with the same `entity` and one of these modes:
+
+| `mode` | View |
+| --- | --- |
+| `rings` | Category rings and global score |
+| `habits` | Habit groups, completion counters and checkboxes |
+| `nutrition` | Hydration and nutrition quantities with +/− controls |
+| `sport` | Sport goals and quantity controls |
+| `weekly` | Current week compared with the previous week |
+| `heatmap` | 13 weeks of real history |
+
+For a filtered habit group:
 
 ```yaml
 type: custom:habit-tracker-card
 entity: sensor.habit_tracker_dashboard
-mode: rings
+mode: habits
+category: mind
 ```
 
-Remplacer l'entité si HA a choisi un autre identifiant. Modes : `rings`, `habits`
-(filtre facultatif `category: mind` ou `daily`), `nutrition`, `sport`, `weekly`,
-`heatmap`. Le [dashboard complet](custom_components/habit_tracker/www/dashboard.yaml)
-est également fourni. Les cartes utilisent exclusivement les états et services HA,
-sans token côté navigateur.
+Category values are `mind`, `daily`, `sport` and `nutrition`. Icons, colors, ordering,
+weights, quantity steps and reminders come from backend habit settings.
+Setup is translated into English and French; the card's current labels are in French.
 
-## Mise à jour et migration
+## Using the integration
 
-Les versions publiées apparaissent dans HACS. Après une mise à jour, redémarrer HA
-puis recharger le navigateur. Le numéro de version du module évite l'ancien cache.
-Les données restent dans le backend ; les config entries et identifiants des entités
-restent inchangés. HACS peut aussi installer la branche par défaut.
+HA creates a Dashboard sensor, a progress sensor per habit, switches for boolean
+habits, and increment/decrement buttons for other habit types. New habits appear
+automatically; archived habits become unavailable. The card uses these HA states
+and calls `habit_tracker.perform_action`, without storing API credentials in Lovelace.
 
-Pour passer d'une installation manuelle, retirer l'ancienne ressource Lovelace
-`/local/habit-tracker/habit-tracker-card.js?...` avant de recharger la page ;
-l'intégration charge désormais la carte. Ne pas supprimer/recréer la config entry.
-Une ressource du prototype `habit-lab-visual-card` est indépendante et peut rester.
+Checking/unchecking and +/− actions update backend entries and statistics. Removing
+a quantity corrects or cancels manual entries; Strava entries are preserved.
+The backend handles rest days, time zones, eligibility and idempotence. Notifications
+require a separate outbound HA connector configuration on the backend.
 
-## Entités et permissions
+## Updates
 
-- Capteur **Dashboard** : score, groupes, compteurs, semaines, heatmap et XP dans
-  les attributs. La série globale est bornée aux 91 dates de la heatmap.
-- Capteur de progression par habitude ; switch pour les habitudes booléennes ;
-  boutons ajouter/retirer pour les habitudes quantitatives, de durée ou fréquence.
-- Service `habit_tracker.perform_action` sur le capteur Dashboard, avec `habit_id`
-  et `action: complete|uncomplete|increment|decrement`.
+Install updates from HACS, restart HA, then reload the browser. Existing config
+entries and entity identifiers are preserved; habit data remains in the backend.
+When moving from a manual card installation, remove the old
+`/local/habit-tracker/habit-tracker-card.js?...` Lovelace resource so the bundled
+card is the one loaded. Keep the existing integration entry.
 
-Les actions sont idempotentes ; un retrait corrige/annule les entrées manuelles,
-sans supprimer les entrées Strava. SSE assure la mise à jour en environ une seconde,
-avec polling de secours toutes les 60 secondes. Le proxy doit désactiver le buffering
-SSE et accepter les connexions longues. Après révocation/expiration du token,
-réauthentifier l'intégration ; les routes backend restent fermées sans token.
+## Troubleshooting
 
-Le PAT est stocké côté serveur HA dans ses config entries. Protéger `.storage` et
-ses sauvegardes. Les permissions HA contrôlent l'accès aux entités : ne pas partager
-des entités personnelles avec des utilisateurs qui ne doivent pas y accéder.
-Les rappels exigent une configuration distincte du connecteur HA sortant du backend.
-L'installation HACS ne configure pas automatiquement ces credentials ni Strava/OIDC.
+| Symptom | Check |
+| --- | --- |
+| Cannot connect | URL reachable from HA, base path, certificate and reverse proxy |
+| Invalid authentication or failed actions | Token expiration/revocation and the three scopes above; use HA's reauthentication flow when prompted |
+| Card type unknown | Integration loaded, browser fully reloaded, old manual JS resource removed |
+| Empty or unavailable cards | Actual Dashboard entity ID, backend availability and habits created through its API |
+| Updates delayed | SSE proxy buffering disabled and long connections allowed; polling falls back to every 60 seconds |
 
-## Dépannage
+Tokens are stored server-side in HA config entries. Protect `.storage` and backups,
+and share habit entities only with HA users allowed to access that data. Excluding
+the Dashboard sensor's large attributes from Recorder can avoid duplicate history
+storage when the backend history is sufficient.
 
-- **Carte inconnue** : vérifier que l'intégration est chargée, retirer l'ancienne
-  ressource manuelle puis recharger complètement le navigateur.
-- **Entités indisponibles** : vérifier URL, portée/expiration du token et accès
-  réseau depuis HA. Une erreur d'authentification demande une nouvelle connexion.
-- **Statistiques vides** : elles nécessitent des habitudes et réalisations réelles ;
-  aucune donnée de démonstration n'est injectée.
-- Éviter d'enregistrer les gros attributs du capteur Dashboard dans Recorder si
-  l'historique de l'API suffit. Utiliser son entity_id réel dans l'exclusion Recorder.
+Manual installation is also possible: copy `custom_components/habit_tracker` into
+HA's configuration directory and continue at the restart/configuration steps above.
 
-Installation manuelle de secours : copier uniquement `custom_components/habit_tracker`
-dans le dossier de configuration HA puis reprendre à l'étape 2. Licence MIT.
+MIT license — [LICENSE](LICENSE).
