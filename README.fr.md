@@ -10,8 +10,9 @@ catégorie, cases à cocher, quantités, comparaison hebdomadaire et heatmap sur
 Les boutons enregistrent de vrais événements côté backend. Les changements arrivent
 par une connexion SSE, avec un rafraîchissement de secours toutes les 60 secondes.
 
-La carte est incluse et chargée automatiquement. Aucune interface séparée, carte
-Mushroom, ressource JavaScript manuelle ou entité helper n'est nécessaire.
+La carte est incluse et déclarée automatiquement quand les ressources Lovelace
+sont gérées dans l'interface HA. Pour des ressources YAML, suivez la déclaration
+ci-dessous. Aucune carte Mushroom ni entité helper n'est nécessaire.
 
 ## Installation
 
@@ -72,6 +73,24 @@ L'URL doit fonctionner **depuis le serveur HA**. `localhost` désigne HA lui-mê
 un nom interne Docker fonctionne seulement si les conteneurs partagent ce réseau.
 Avec HTTPS, le certificat doit être reconnu par HA. L'intégration ne suit pas les
 redirections avec votre token.
+
+#### Si les ressources Lovelace sont gérées en YAML
+
+La version 0.1.2 enregistre la carte comme ressource Lovelace en mode UI/storage.
+Si votre configuration utilise `resource_mode: yaml`, ajoutez plutôt cette entrée
+à votre bloc `lovelace` existant dans `configuration.yaml` :
+
+```yaml
+lovelace:
+  resource_mode: yaml
+  resources:
+    - url: /habit_tracker/frontend/0.1.2/habit-tracker-card.js
+      type: module
+```
+
+Conservez les autres ressources. Rechargez les ressources Lovelace ou redémarrez
+HA, puis rechargez le navigateur. Actualisez la version dans cette URL lors des
+mises à jour ; l'intégration ne modifie pas vos fichiers YAML.
 
 ### 4. Ajouter la première carte
 
@@ -136,7 +155,9 @@ connecteur HA sortant sur le backend.
 
 ## Mises à jour
 
-Installez les mises à jour depuis HACS, redémarrez HA puis rechargez le navigateur.
+Installez les mises à jour depuis HACS, redémarrez HA puis rechargez complètement le navigateur.
+En mode ressources UI/storage, la déclaration est créée ou mise à jour sans doublon ;
+en mode ressources YAML, actualisez aussi l’URL versionnée ci-dessus.
 Les config entries et identifiants des entités sont conservés ; les données restent
 dans le backend. En migration depuis une carte installée manuellement, retirez
 l'ancienne ressource Lovelace `/local/habit-tracker/habit-tracker-card.js?...`
@@ -148,9 +169,16 @@ pour charger la carte embarquée. Conservez l'intégration existante.
 | --- | --- |
 | Connexion impossible | URL accessible depuis HA, chemin de base, certificat et reverse proxy |
 | Authentification invalide ou actions refusées | Expiration/révocation du token et les trois scopes ; utiliser la réauthentification proposée par HA |
-| Type de carte inconnu | Intégration chargée, navigateur complètement rechargé, ancienne ressource JS manuelle retirée |
+| Type de carte inconnu | Intégration configurée et chargée, navigateur complètement rechargé ; carte présente dans les ressources Lovelace en type Module JavaScript ; en YAML, ajouter la déclaration ci-dessus |
 | Carte vide ou indisponible | Identifiant réel du capteur Dashboard, disponibilité du backend, habitudes créées via son API |
 | Mises à jour lentes | Buffering SSE désactivé au proxy et connexions longues autorisées ; secours toutes les 60 secondes |
+
+Pour débloquer une version **0.1.1**, ajoutez manuellement
+`/habit_tracker/frontend/0.1.1/habit-tracker-card.js` comme ressource de type
+**Module JavaScript** dans Paramètres → Tableaux de bord → ⋮ → Ressources, puis
+rechargez le navigateur. Une réponse 404 sur cette URL indique que l'intégration
+n'est pas chargée, que la version est différente ou que le proxy bloque ce chemin.
+La mise à jour 0.1.2 remplace cette ressource automatiquement en mode UI/storage.
 
 Les tokens restent côté serveur dans les config entries HA. Protégez `.storage`
 et ses sauvegardes, et partagez les entités uniquement avec les utilisateurs HA

@@ -10,8 +10,9 @@ rings, checkboxes, quantities, weekly comparisons and a 13-week heatmap.
 Buttons record real backend events; changes arrive through a live SSE connection,
 with a 60-second polling fallback.
 
-The card is bundled with the integration and loads automatically. No separate
-frontend, Mushroom cards, manual JavaScript resource or helper entities are required.
+The card is bundled and registered automatically when Lovelace resources are
+managed through the HA UI. For YAML resources, use the declaration below.
+No Mushroom cards or helper entities are required.
 
 ## Installation
 
@@ -72,6 +73,24 @@ Docker-only hostname works only when the containers share its network. For HTTPS
 use a certificate trusted by HA. The integration does not follow redirects with
 your token.
 
+#### If Lovelace resources are managed in YAML
+
+Version 0.1.2 registers the card as a Lovelace resource in UI/storage mode.
+If your configuration uses `resource_mode: yaml`, add this entry to the existing
+`lovelace` section in `configuration.yaml` instead:
+
+```yaml
+lovelace:
+  resource_mode: yaml
+  resources:
+    - url: /habit_tracker/frontend/0.1.2/habit-tracker-card.js
+      type: module
+```
+
+Keep other resources. Reload Lovelace resources or restart HA, then reload your
+browser. Update the version in this URL when upgrading; the integration never
+rewrites your YAML files.
+
 ### 4. Add your first card
 
 1. Reload your browser after configuring the integration.
@@ -131,7 +150,9 @@ require a separate outbound HA connector configuration on the backend.
 
 ## Updates
 
-Install updates from HACS, restart HA, then reload the browser. Existing config
+Install updates from HACS, restart HA, then fully reload the browser.
+In UI/storage resource mode, the registration is created or updated without
+duplicates; for YAML resources, also update the versioned URL above. Existing config
 entries and entity identifiers are preserved; habit data remains in the backend.
 When moving from a manual card installation, remove the old
 `/local/habit-tracker/habit-tracker-card.js?...` Lovelace resource so the bundled
@@ -143,9 +164,15 @@ card is the one loaded. Keep the existing integration entry.
 | --- | --- |
 | Cannot connect | URL reachable from HA, base path, certificate and reverse proxy |
 | Invalid authentication or failed actions | Token expiration/revocation and the three scopes above; use HA's reauthentication flow when prompted |
-| Card type unknown | Integration loaded, browser fully reloaded, old manual JS resource removed |
+| Card type unknown | Integration configured and loaded, browser fully reloaded; card listed as a JavaScript Module in Lovelace resources; for YAML, add the declaration above |
 | Empty or unavailable cards | Actual Dashboard entity ID, backend availability and habits created through its API |
 | Updates delayed | SSE proxy buffering disabled and long connections allowed; polling falls back to every 60 seconds |
+
+To unblock version **0.1.1**, manually add
+`/habit_tracker/frontend/0.1.1/habit-tracker-card.js` as a **JavaScript Module**
+resource under Settings → Dashboards → ⋮ → Resources, then reload your browser.
+A 404 means the integration is not loaded, the version differs, or the proxy
+blocks that path. Version 0.1.2 automatically replaces this resource in UI/storage mode.
 
 Tokens are stored server-side in HA config entries. Protect `.storage` and backups,
 and share habit entities only with HA users allowed to access that data. Excluding

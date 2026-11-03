@@ -1,8 +1,9 @@
 """Local Habit Tracker API integration."""
+import logging
 from pathlib import Path
 
-from homeassistant.components import frontend
 from homeassistant.components.http import StaticPathConfig
+from homeassistant.components.lovelace.const import LOVELACE_DATA, MODE_STORAGE
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers import config_validation as cv
 from homeassistant.loader import async_get_integration
@@ -12,6 +13,7 @@ from .const import DOMAIN, PLATFORMS
 from .coordinator import HabitCoordinator
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup(hass, config):
@@ -21,7 +23,22 @@ async def async_setup(hass, config):
     await hass.http.async_register_static_paths([
         StaticPathConfig(card_url, str(Path(__file__).parent / "www/habit-tracker-card.js"), True)
     ])
-    frontend.add_extra_js_url(hass, card_url)
+    lovelace = hass.data[LOVELACE_DATA]
+    if lovelace.resource_mode == MODE_STORAGE:
+        resources = lovelace.resources
+        await resources.async_get_info()
+        existing = [item for item in resources.async_items()
+                    if item["url"].split("?", 1)[0].startswith("/habit_tracker/frontend/")
+                    and item["url"].split("?", 1)[0].endswith("/habit-tracker-card.js")]
+        if existing:
+            if existing[0]["url"] != card_url or existing[0]["type"] != "module":
+                await resources.async_update_item(existing[0]["id"], {"url": card_url, "res_type": "module"})
+            for duplicate in existing[1:]:
+                await resources.async_delete_item(duplicate["id"])
+        else:
+            await resources.async_create_item({"url": card_url, "res_type": "module"})
+    else:
+        _LOGGER.warning("Lovelace resources use YAML: add %s as type: module under lovelace.resources, then reload resources", card_url)
     return True
 
 
