@@ -85,7 +85,7 @@ Si votre configuration utilise `resource_mode: yaml`, ajoutez plutôt cette entr
 lovelace:
   resource_mode: yaml
   resources:
-    - url: /habit_tracker/frontend/0.2.0/habit-tracker-card.js
+    - url: /habit_tracker/frontend/0.3.0/habit-tracker-card.js
       type: module
 ```
 
@@ -231,5 +231,34 @@ de Recorder peut éviter de stocker deux fois l'historique si celui du backend s
 
 L'installation manuelle reste possible : copiez `custom_components/habit_tracker`
 dans la configuration HA, puis reprenez aux étapes de redémarrage et configuration.
+
+
+### Affichage et nom des entités
+
+La version 0.3.0 anime les segments des anneaux et le niveau d'eau dans les deux
+sens, même lors de mises à jour rapprochées, et respecte la réduction des
+animations. La légende reste à côté des anneaux sur une carte large, puis passe
+en dessous sur petit écran. Une [icône générée](https://github.com/floriaaan/habit-tracker-ha/blob/main/docs/brand.md) est embarquée.
+
+Les nouveaux capteurs Dashboard utilisent `sensor.habits_<user_id_backend>`
+(les tirets de l'UUID deviennent des underscores). Le backend ne fournit pas
+encore de username/claim d'affichage ; son UUID stable est donc utilisé.
+Les identifiants et noms personnalisés du registre existant sont conservés pour
+préserver dashboards et automatisations. Pour renommer un `sensor.dashboard`
+existant, utiliser les paramètres de l'entité HA puis adapter ses références
+YAML ; l'éditeur visuel propose automatiquement la véritable entité.
+
+### Tests de régression frontend
+
+Avec Node 22+ et Google Chrome installés :
+
+```sh
+npm ci --ignore-scripts
+npm test
+```
+
+Ces tests navigateur utilisent des fixtures, jamais un HA personnel. Ils couvrent
+remplissage/vidage, mises à jour rapides, layout et réduction des animations.
+Node et Playwright servent au développement et ne sont pas installés par HACS.
 
 Licence MIT — [LICENSE](LICENSE).

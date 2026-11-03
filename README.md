@@ -84,7 +84,7 @@ If your configuration uses `resource_mode: yaml`, add this entry to the existing
 lovelace:
   resource_mode: yaml
   resources:
-    - url: /habit_tracker/frontend/0.2.0/habit-tracker-card.js
+    - url: /habit_tracker/frontend/0.3.0/habit-tracker-card.js
       type: module
 ```
 
@@ -221,5 +221,33 @@ storage when the backend history is sufficient.
 
 Manual installation is also possible: copy `custom_components/habit_tracker` into
 HA's configuration directory and continue at the restart/configuration steps above.
+
+
+### Display and entity names
+
+Version 0.3.0 animates ring segments and water levels in both directions,
+including interrupted updates, and respects reduced-motion preferences. Wide
+ring cards keep the legend alongside the rings; narrow cards stack them.
+The integration includes its own [generated icon](https://github.com/floriaaan/habit-tracker-ha/blob/main/docs/brand.md).
+
+New Dashboard sensors use `sensor.habits_<backend_user_id>` (UUID hyphens become
+underscores). The backend currently provides no username/display claim, so the
+stable user ID is used. Existing registry IDs and unique IDs are preserved,
+including custom names, to keep dashboards and automations working. To rename an
+existing `sensor.dashboard`, use its HA entity settings, then update any YAML
+references; the visual editor offers the actual entity automatically.
+
+### Frontend regression tests
+
+With Node 22+ and Google Chrome installed:
+
+```sh
+npm ci --ignore-scripts
+npm test
+```
+
+These browser tests use fixture data, never a personal HA installation. They
+check fill/unfill, rapid updates, ring layout and reduced motion. HACS installs
+only the integration files; Node and Playwright are development tools.
 
 MIT license — [LICENSE](LICENSE).

@@ -1,0 +1,1 @@
+{"name":"habit-tracker-ha-ui-tests","private":true,"scripts":{"test":"node --test tests/card.test.cjs"},"devDependencies":{"playwright":"1.64.1"}}

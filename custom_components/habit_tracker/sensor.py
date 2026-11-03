@@ -25,7 +25,9 @@ class DashboardSensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator):
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_dashboard"
-        self._attr_suggested_object_id = "habit_tracker_dashboard"
+        # Stable tenant fallback: no unverified token decoding or HA user identity.
+        self._attr_name = f"Habits {coordinator.data['user_id']}"
+        self._attr_suggested_object_id = f"habits_{coordinator.data['user_id']}"
 
     @property
     def native_value(self):

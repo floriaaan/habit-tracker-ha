@@ -24,3 +24,12 @@ jobs:
           # Custom repository; no submission to the default HACS catalogue.
           ignore: brands
           comment: 'false'
+
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Node and Google Chrome are supplied by the Ubuntu runner image.
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm test
