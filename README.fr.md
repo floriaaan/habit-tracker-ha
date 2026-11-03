@@ -85,7 +85,7 @@ Si votre configuration utilise `resource_mode: yaml`, ajoutez plutôt cette entr
 lovelace:
   resource_mode: yaml
   resources:
-    - url: /habit_tracker/frontend/0.3.0/habit-tracker-card.js
+    - url: /habit_tracker/frontend/0.3.1/habit-tracker-card.js
       type: module
 ```
 
@@ -262,3 +262,17 @@ remplissage/vidage, mises à jour rapides, layout et réduction des animations.
 Node et Playwright servent au développement et ne sont pas installés par HACS.
 
 Licence MIT — [LICENSE](LICENSE).
+
+### Clic sur les verres et correctifs d'animation (0.3.1)
+
+Cliquez sur un verre pour fixer directement le total de période : le troisième
+verre avec un pas de 250 mL définit 750 mL, y compris pour diminuer le total.
+C'est une seule action backend idempotente, sans répétition d'incréments.
+Les entrées fournisseur sont conservées. Le scope existant `entries:write`
+suffit. Mettez à jour l'image backend avant HACS ; les anciens backends ne
+reconnaissent pas `set_value`.
+
+Le premier rendu affiche immédiatement l'état confirmé. Les segments inchangés
+conservent leurs nœuds et leurs animations en cours ; seules les cibles modifiées
+s'animent. Les verres sont des boutons accessibles au clavier, désactivés pendant
+une action ou hors éligibilité.

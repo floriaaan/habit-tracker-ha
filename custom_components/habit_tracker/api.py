@@ -72,9 +72,12 @@ class HabitApi:
             raise ApiError("Invalid dashboard response")
         return data
 
-    async def action(self, habit_id: str, action: str):
+    async def action(self, habit_id: str, action: str, value=None):
         # One key per human action, reused after an ambiguous transport failure.
-        return await self._write(f"/api/v1/habits/{habit_id}/actions", {"action": action}, str(uuid4()))
+        body = {"action": action}
+        if value is not None:
+            body["value"] = value
+        return await self._write(f"/api/v1/habits/{habit_id}/actions", body, str(uuid4()))
 
     async def create_habit(self, habit, presentation, key):
         return await self._write("/api/v1/habits/setup", {"habit": habit, "presentation": presentation}, key)

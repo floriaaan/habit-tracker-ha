@@ -1,6 +1,6 @@
 perform_action:
   name: Habit action
-  description: Complete, undo, add or remove one configured step using an authenticated dashboard entity.
+  description: Complete, undo, add/remove a configured step or set a quantity directly using an authenticated dashboard entity.
   target:
     entity:
       integration: habit_tracker
@@ -19,3 +19,12 @@ perform_action:
             - uncomplete
             - increment
             - decrement
+            - set_value
+    value:
+      description: Total period value in the habit unit, required only for set_value.
+      selector:
+        number:
+          min: 0
+          max: 1000000000000
+          step: any
+          mode: box

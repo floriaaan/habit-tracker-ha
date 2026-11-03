@@ -46,6 +46,10 @@
         },
         "action": {
           "name": "Action"
+        },
+        "value": {
+          "name": "Valeur totale",
+          "description": "Valeur de période, requise pour set_value uniquement."
         }
       }
     }

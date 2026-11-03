@@ -84,7 +84,7 @@ If your configuration uses `resource_mode: yaml`, add this entry to the existing
 lovelace:
   resource_mode: yaml
   resources:
-    - url: /habit_tracker/frontend/0.3.0/habit-tracker-card.js
+    - url: /habit_tracker/frontend/0.3.1/habit-tracker-card.js
       type: module
 ```
 
@@ -251,3 +251,15 @@ check fill/unfill, rapid updates, ring layout and reduced motion. HACS installs
 only the integration files; Node and Playwright are development tools.
 
 MIT license — [LICENSE](LICENSE).
+
+### Glass controls and animation fixes (0.3.1)
+
+Click a water glass to set the period total directly: glass 3 with a 250 mL step
+sets 750 mL, including when lowering the current total. This is one idempotent
+backend action, not repeated increments. Existing provider entries are preserved.
+The API token uses the same `entries:write` scope. Update the backend image before
+updating HACS; older backends do not support `set_value`.
+
+Initial rendering shows the confirmed state immediately. Unchanged segments keep
+their DOM nodes and running animations; only changed targets animate. Glasses are
+keyboard buttons; pending or ineligible actions are disabled.

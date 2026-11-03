@@ -12,7 +12,18 @@ test('rings and water animate in both directions, preserve interrupted progress 
   try {
     const page=await browser.newPage({viewport:{width:1440,height:900},reducedMotion:'no-preference'});
     await page.goto(`http://127.0.0.1:${server.address().port}`);await page.waitForFunction(()=>window.fixtureReady);
-    await page.waitForTimeout(850);
+    // Render before attachment, as Lovelace can do during card construction.
+    await page.evaluate(() => {
+      const original=document.querySelector('#nutrition');
+      const detached=document.createElement('habit-tracker-card');
+      detached.setConfig({entity:'sensor.habits_fixture',mode:'nutrition'});
+      detached.hass=original._hass;
+      document.body.append(detached);
+      const water=detached.shadowRoot.querySelector('[data-motion="water-water-7"]');
+      if(new DOMMatrixReadOnly(getComputedStyle(water).transform).m22!==0)throw Error('empty glass flashed full on attachment');
+      if(detached.shadowRoot.getAnimations().length)throw Error('initial state should not animate');
+      detached.remove();
+    });
     const sample=()=>page.evaluate(()=>{
       const root=document.querySelector('#nutrition').shadowRoot;
       const water=root.querySelector('[data-motion="water-water-7"]');
@@ -22,6 +33,14 @@ test('rings and water animate in both directions, preserve interrupted progress 
     assert.equal((await sample()).fill,0);
     await page.evaluate(()=>setWater(2000));await page.waitForTimeout(150);
     const up=await sample();assert(up.fill>0&&up.fill<1);assert(up.arc>0);
+    await page.evaluate(() => {
+      const card=document.querySelector('#nutrition'), node=card.shadowRoot.querySelector('[data-motion="water-water-7"]');
+      const animation=node.getAnimations()[0];
+      const ring=document.querySelector('#rings').shadowRoot.querySelector('[data-motion="arc-run"]');
+      renderFixture();
+      if(card.shadowRoot.querySelector('[data-motion="water-water-7"]')!==node || node.getAnimations()[0]!==animation) throw Error('unchanged animation was recreated');
+      if(document.querySelector('#rings').shadowRoot.querySelector('[data-motion="arc-run"]')!==ring) throw Error('unrelated ring was recreated');
+    });
     await page.evaluate(()=>setWater(1750));
     const interrupted=await sample();assert(Math.abs(interrupted.fill-up.fill)<0.12,'animation restarted instead of resuming');
     await page.waitForTimeout(850);assert.equal((await sample()).fill,0);
@@ -35,6 +54,14 @@ test('rings and water animate in both directions, preserve interrupted progress 
     await page.setViewportSize({width:390,height:844});await page.waitForTimeout(100);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     if(process.env.CARD_SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.CARD_SCREENSHOT_DIR,'mobile.png'),fullPage:true});
+    await page.evaluate(() => {
+      const card=document.querySelector('#nutrition');window.glassCalls=[];
+      card._hass.callService=async (...args)=>{glassCalls.push(args);};
+    });
+    await page.locator('#nutrition').getByRole('button',{name:'Définir Hydratation à 0,75 L',exact:true}).click();
+    assert.deepEqual(await page.evaluate(()=>glassCalls),[['habit_tracker','perform_action',{entity_id:'sensor.habits_fixture',habit_id:'water',action:'set_value',value:750}]]);
+    await page.waitForTimeout(20);
+    assert.equal(await page.evaluate(()=>document.querySelector('#nutrition').shadowRoot.activeElement?.dataset.value),'750');
     await page.emulateMedia({reducedMotion:'reduce'});await page.evaluate(()=>setWater(2000));assert.equal((await sample()).fill,1);
     assert.equal(await page.evaluate(()=>document.querySelector('#nutrition').shadowRoot.getAnimations().length),0);
   } finally {await browser.close();await new Promise(resolve=>server.close(resolve));}

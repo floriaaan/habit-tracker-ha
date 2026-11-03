@@ -56,7 +56,12 @@ class HabitTrackerCard extends HTMLElement {
     if (item.presentation.illustration !== "plain") {
       const count = Math.min(32, Math.ceil(item.target / item.presentation.step));
       const filled = item.progress / item.presentation.step;
-      illustration = `<div class="portions" style="--portion-count:${Math.min(count,8)}" aria-label="${name} : ${this._amount(item,item.progress)} sur ${this._amount(item,item.target)}">${Array.from({length:count}, (_,i) => `<span class="portion ${item.presentation.illustration === "water" ? "water" : "produce"}" style="--fill:${Math.max(0,Math.min(1,filled-i))*100}%" aria-hidden="true">${item.presentation.illustration === "portions" ? '<ha-icon icon="mdi:food-apple-outline"></ha-icon>' : `<span class="water-liquid" data-motion="water-${this._escape(item.habit.id)}-${i}" style="transform:scaleY(${Math.max(0,Math.min(1,filled-i))})"></span>`}</span>`).join("")}</div>`;
+      illustration = `<div class="portions" style="--portion-count:${Math.min(count,8)}" aria-label="${name} : ${this._amount(item,item.progress)} sur ${this._amount(item,item.target)}">${Array.from({length:count}, (_,i) => {
+        const water = item.presentation.illustration === "water", value = Math.min((i+1)*item.presentation.step,item.target);
+        const tag = water ? "button" : "span";
+        const attributes = water ? `type="button" data-id="${this._escape(item.habit.id)}" data-action="set_value" data-value="${value}" aria-label="Définir ${name} à ${this._escape(this._amount(item,value))}" ${this._pending || !item.actionable ? "disabled" : ""}` : 'aria-hidden="true"';
+        return `<${tag} class="portion ${water ? "water" : "produce"}" style="--fill:${Math.max(0,Math.min(1,filled-i))*100}%" ${attributes}>${water ? `<span class="water-liquid" data-motion="water-${this._escape(item.habit.id)}-${i}" style="transform:scaleY(${Math.max(0,Math.min(1,filled-i))})"></span>` : '<ha-icon icon="mdi:food-apple-outline"></ha-icon>'}</${tag}>`;
+      }).join("")}</div>`;
     }
     return `<section style="--habit-accent:${this._color(item, "var(--primary-color, #75b7ad)")}"><div class="line"><strong><ha-icon icon="${icon}"></ha-icon>${name}</strong><b>${this._percent(item.percent)}</b>${item.habit.kind === "boolean" ? this._controls(item) : ""}</div><div class="details">${!item.eligible ? "Repos · exclu des objectifs" : item.habit.kind === "boolean" ? (item.completed ? "Terminé" : "À faire") : `<span class="quantity"><strong>${this._amount(item,item.progress)}</strong><span>/ ${this._amount(item,item.target)}</span></span>`}${item.eligible && !item.actionable ? " · fenêtre de saisie fermée" : ""}</div>${illustration}${item.habit.kind !== "boolean" ? this._controls(item) : ""}</section>`;
   }
@@ -73,11 +78,14 @@ class HabitTrackerCard extends HTMLElement {
   }
   _render() {
     if (!this._config) return;
-    const focused = this.shadowRoot.activeElement?.dataset;
+    const focused = this.shadowRoot.activeElement?.dataset || this._focus;
     const previous = new Map();
     this.shadowRoot.querySelectorAll("[data-motion]").forEach(element => {
-      const style = getComputedStyle(element);
-      previous.set(element.dataset.motion, {strokeDasharray:style.strokeDasharray, strokeDashoffset:style.strokeDashoffset, transform:`scaleY(${new DOMMatrixReadOnly(style.transform).m22})`});
+      const style = element.isConnected ? getComputedStyle(element) : null;
+      const water = element.classList.contains("water-liquid");
+      const visual = water ? {transform:style ? `scaleY(${new DOMMatrixReadOnly(style.transform).m22})` : element.style.transform}
+        : {strokeDasharray:style?.strokeDasharray || element.getAttribute("stroke-dasharray"),strokeDashoffset:style?.strokeDashoffset || element.getAttribute("stroke-dashoffset")};
+      previous.set(element.dataset.motion, {element,target:element._motionTarget,visual});
     });
     const state = this._state;
     let body;
@@ -94,23 +102,32 @@ class HabitTrackerCard extends HTMLElement {
       } else body = this._habits(data.groups);
     }
     this.shadowRoot.innerHTML = `<style>${HabitTrackerCard.css}</style><ha-card aria-busy="${this._pending}">${body}<p class="error" role="alert">${this._escape(this._error || "")}</p></ha-card>`;
-    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      this.shadowRoot.querySelectorAll("[data-motion]").forEach(element => {
-        const old = previous.get(element.dataset.motion), style = getComputedStyle(element);
-        const water = element.classList.contains("water-liquid");
-        const to = water ? {transform:`scaleY(${new DOMMatrixReadOnly(style.transform).m22})`} : {strokeDasharray:style.strokeDasharray,strokeDashoffset:style.strokeDashoffset};
-        const from = water ? {transform:old?.transform || "scaleY(0)"} : {strokeDasharray:old?.strokeDasharray || `0 ${2*Math.PI*Number(element.getAttribute("r"))}`,strokeDashoffset:old?.strokeDashoffset || "0"};
-        if (JSON.stringify(from) !== JSON.stringify(to)) element.animate([from,to], {duration:800,easing:"cubic-bezier(.22,1,.36,1)"});
-      });
-    }
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    this.shadowRoot.querySelectorAll("[data-motion]").forEach(element => {
+      const old = previous.get(element.dataset.motion), water = element.classList.contains("water-liquid");
+      // Targets are explicit values: detached elements have no computed styles.
+      const target = water ? {transform:element.style.transform}
+        : {strokeDasharray:element.getAttribute("stroke-dasharray"),strokeDashoffset:element.getAttribute("stroke-dashoffset")};
+      element._motionTarget = target;
+      if (old && JSON.stringify(old.target) === JSON.stringify(target)) {
+        // Keep the node and its running animation when only unrelated data changes.
+        for (const attr of element.attributes) old.element.setAttribute(attr.name, attr.value);
+        element.replaceWith(old.element);
+        if (reduced) old.element.getAnimations().forEach(animation => animation.cancel());
+      } else if (old) {
+        old.element.getAnimations().forEach(animation => animation.cancel());
+        if (!reduced) element.animate([old.visual,target], {duration:800,easing:"cubic-bezier(.22,1,.36,1)",fill:"backwards"});
+      }
+    });
     this.shadowRoot.querySelectorAll("button[data-action]").forEach(button => button.addEventListener("click", async () => {
       if (this._pending) return;
+      this._focus = {...button.dataset};
       this._pending = true; this._error = null; this._render();
-      try { await this._hass.callService("habit_tracker", "perform_action", {entity_id:this._config.entity, habit_id:button.dataset.id, action:button.dataset.action}); }
+      try { await this._hass.callService("habit_tracker", "perform_action", {entity_id:this._config.entity, habit_id:button.dataset.id, action:button.dataset.action, ...(button.dataset.value !== undefined ? {value:Number(button.dataset.value)} : {})}); }
       catch (_) { this._error = "Action refusée ou connexion interrompue. Vérifiez le résultat avant de réessayer."; }
-      finally { this._pending = false; this._render(); }
+      finally { this._pending = false; this._render(); this._focus = null; }
     }));
-    if (focused?.id && focused?.action) this.shadowRoot.querySelector(`button[data-id="${CSS.escape(focused.id)}"][data-action="${CSS.escape(focused.action)}"]`)?.focus({preventScroll:true});
+    if (focused?.id && focused?.action) this.shadowRoot.querySelector(`button[data-id="${CSS.escape(focused.id)}"][data-action="${CSS.escape(focused.action)}"]${focused.value !== undefined ? `[data-value="${CSS.escape(focused.value)}"]` : ""}`)?.focus({preventScroll:true});
   }
 }
 HabitTrackerCard.css = `
@@ -122,7 +139,7 @@ h2{font-size:18px;line-height:1.4;margin:0 0 12px}p{line-height:1.6;margin:8px 0
 .quantity{display:inline-flex;align-items:baseline;gap:6px}.quantity strong{font-size:24px;font-weight:700;color:var(--primary-text-color)}.legend-dots{display:inline-flex;gap:2px;flex-shrink:0}.line{display:flex;align-items:center;gap:12px}.line strong{display:flex;align-items:center;gap:8px;flex:1;min-width:0;overflow-wrap:anywhere}.line b,.line>span{font-variant-numeric:tabular-nums;white-space:nowrap}.line h2{flex:1;margin:0}
 section{padding:14px 0}section+section{border-top:1px solid var(--divider-color)}.details,small{color:var(--secondary-text-color);font-size:12px;line-height:1.6}.details{margin-top:6px;overflow-wrap:anywhere}.dot{width:8px;height:8px;background:var(--habit-accent);border-radius:50%}ha-icon{color:var(--habit-accent);--mdc-icon-size:22px;flex-shrink:0}
 .group+.group{margin-top:28px}progress{width:100%;height:6px;margin:14px 0 0;border:0;border-radius:4px}progress::-webkit-progress-bar{background:var(--divider-color);border-radius:4px}progress::-webkit-progress-value{background:var(--habit-accent,var(--primary-color));border-radius:4px}
-button{width:44px;height:44px;border:0;border-radius:50%;background:var(--secondary-background-color);color:var(--primary-text-color);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}button:hover:not(:disabled){background:var(--divider-color)}button:disabled{opacity:.4;cursor:default}button:focus-visible{outline:3px solid var(--primary-color);outline-offset:3px}.buttons{display:flex;align-items:center;justify-content:space-between;margin-top:12px;gap:12px}.check{background:transparent}.check[aria-pressed=true] ha-icon{color:var(--habit-accent,var(--primary-color))}
+button{width:44px;height:44px;border:0;border-radius:50%;background:var(--secondary-background-color);color:var(--primary-text-color);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}button:hover:not(:disabled){background:var(--divider-color)}button:disabled{opacity:.4;cursor:default}.water:disabled{opacity:1}button.water{padding:0}.water:focus-visible{outline:none;filter:brightness(1.2)}.water:focus-visible::after{background:white;width:14%}button:focus-visible{outline:3px solid var(--primary-color);outline-offset:3px}.buttons{display:flex;align-items:center;justify-content:space-between;margin-top:12px;gap:12px}.check{background:transparent}.check[aria-pressed=true] ha-icon{color:var(--habit-accent,var(--primary-color))}
 .portions{display:grid;grid-template-columns:repeat(var(--portion-count),minmax(0,1fr));gap:6px;margin:18px 0}.portion{width:100%;max-width:48px;justify-self:center;height:48px;border-radius:5px;background:linear-gradient(to top,var(--habit-accent) var(--fill),var(--divider-color) var(--fill));display:flex;align-items:center;justify-content:center}.water{position:relative;height:56px;border-radius:0;clip-path:polygon(0 0,100% 0,85% 100%,15% 100%);background:color-mix(in srgb,var(--primary-text-color) 12%,transparent)}.water-liquid{position:absolute;inset:0;transform-origin:50% 100%;background:linear-gradient(180deg,#b2e5f3 0%,#72c6df 45%,#4aa4c5 100%)}.water::after{content:"";position:absolute;left:19%;top:9%;height:76%;width:9%;border-radius:3px;background:rgba(255,255,255,.42);transform:rotate(-3deg)}.produce{width:100%;height:44px}.produce ha-icon{color:var(--primary-text-color)}
 .chart{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:12px;margin:22px 0}.chart>div{text-align:center}.pair{height:120px;display:flex;align-items:end;justify-content:center;gap:5px}.bar{width:16px;max-width:40%;border-radius:5px 5px 0 0;background:var(--primary-color,#70a36b)}.previous{background:var(--divider-color)}
 .heatmap{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,1fr);grid-template-columns:repeat(13,minmax(0,1fr));gap:4px;margin-top:22px}.cell{display:block;aspect-ratio:1;border-radius:3px;background:color-mix(in srgb,var(--primary-color,#70a36b) calc(15% + var(--intensity)*85%),var(--ha-card-background,var(--card-background-color)))}.empty{background:var(--divider-color);opacity:.45}.error{color:var(--error-color);font-size:13px}.error:empty{display:none}::selection{background:var(--primary-color);color:var(--text-primary-color)}

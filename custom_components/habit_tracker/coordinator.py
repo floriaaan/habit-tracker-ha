@@ -36,11 +36,11 @@ class HabitCoordinator(DataUpdateCoordinator):
         return {item["habit"]["id"]: item for group in (self.data or {}).get("groups", [])
                 for item in group["habits"]}
 
-    async def perform(self, habit_id: str, action: str):
+    async def perform(self, habit_id: str, action: str, value=None):
         if habit_id not in self.habits():
             raise HomeAssistantError("Habit no longer available")
         try:
-            await self.api.action(habit_id, action)
+            await self.api.action(habit_id, action, value)
         except InvalidAuth as err:
             self.entry.async_start_reauth(self.hass)
             raise HomeAssistantError("Habit Tracker authentication expired") from err

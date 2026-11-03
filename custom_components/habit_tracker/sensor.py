@@ -12,7 +12,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
     discover(entry, async_add_entities, lambda c, i, item: [ProgressSensor(c, i)])
     entity_platform.async_get_current_platform().async_register_entity_service(
         "perform_action", {vol.Required("habit_id"): cv.string,
-                           vol.Required("action"): vol.In(["complete", "uncomplete", "increment", "decrement"])},
+                           vol.Required("action"): vol.In(["complete", "uncomplete", "increment", "decrement", "set_value"]),
+                           vol.Optional("value"): vol.All(vol.Coerce(float), vol.Range(min=0, max=1e12))},
         "async_perform_action")
 
 
@@ -38,8 +39,8 @@ class DashboardSensor(CoordinatorEntity, SensorEntity):
         return {key: self.coordinator.data[key] for key in
                 ("groups", "weekly", "heatmap", "gamification", "date", "timezone", "revision", "generated_at", "streak_91_days")}
 
-    async def async_perform_action(self, habit_id, action):
-        await self.coordinator.perform(habit_id, action)
+    async def async_perform_action(self, habit_id, action, value=None):
+        await self.coordinator.perform(habit_id, action, value)
 
 
 class ProgressSensor(HabitEntity, SensorEntity):
@@ -61,5 +62,5 @@ class ProgressSensor(HabitEntity, SensorEntity):
             return {}
         return {key: self.item[key] for key in ("target", "percent", "completed", "eligible", "actionable", "local_date", "presentation")} | {"category": self.item["habit"]["category"]}
 
-    async def async_perform_action(self, habit_id, action):
-        await self.coordinator.perform(habit_id, action)
+    async def async_perform_action(self, habit_id, action, value=None):
+        await self.coordinator.perform(habit_id, action, value)
