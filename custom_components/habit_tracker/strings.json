@@ -1,11 +1,147 @@
 {
   "config": {
     "step": {
-      "user": {"title": "Habit Tracker", "description": "Use a tenant-scoped PAT with habits:read, statistics:read and entries:write. HTTP is only suitable for a trusted local connection.", "data": {"url": "API URL", "token": "API token", "allow_http": "Allow HTTP on a trusted local connection"}},
-      "reauth_confirm": {"title": "Replace API token", "data": {"token": "API token"}}
+      "user": {
+        "title": "Habit Tracker",
+        "description": "Use a PAT with habits:read, statistics:read and entries:write. Add habits:write to create habits under Configure after connecting. HTTP is only suitable for a trusted local connection.",
+        "data": {
+          "url": "API URL",
+          "token": "API token",
+          "allow_http": "Allow HTTP on a trusted local connection"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Replace API token",
+        "data": {
+          "token": "API token"
+        }
+      },
+      "reconfigure": {
+        "title": "Replace API token",
+        "description": "To create habits from HA, use a token for the same account with habits:write in addition to the read and check-in scopes.",
+        "data": {
+          "token": "API token"
+        }
+      }
     },
-    "error": {"invalid_url": "Enter a valid HTTPS URL, or explicitly allow local HTTP.", "invalid_auth": "Check the token, expiration and scopes.", "cannot_connect": "Cannot connect to Habit Tracker."},
-    "abort": {"already_configured": "This backend account is already configured.", "wrong_account": "The replacement token belongs to another account.", "reauth_successful": "Authentication updated."}
+    "error": {
+      "invalid_url": "Enter a valid HTTPS URL, or explicitly allow local HTTP.",
+      "invalid_auth": "Check the token, expiration and scopes.",
+      "cannot_connect": "Cannot connect to Habit Tracker."
+    },
+    "abort": {
+      "already_configured": "This backend account is already configured.",
+      "wrong_account": "The replacement token belongs to another account.",
+      "reauth_successful": "Authentication updated.",
+      "reconfigure_successful": "Token updated."
+    }
   },
-  "services": {"perform_action": {"name": "Habit action", "description": "Change a habit through an authenticated dashboard sensor.", "fields": {"habit_id": {"name": "Habit ID"}, "action": {"name": "Action"}}}}
+  "services": {
+    "perform_action": {
+      "name": "Habit action",
+      "description": "Change a habit through an authenticated dashboard sensor.",
+      "fields": {
+        "habit_id": {
+          "name": "Habit ID"
+        },
+        "action": {
+          "name": "Action"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Set up my habits",
+        "description": "Choose a preset to customize or create your own habit. Creation requires habits:write. Existing habits stay unchanged.",
+        "menu_options": {
+          "preset": "Start from a preset",
+          "custom": "Create a custom habit",
+          "finish": "Finish"
+        }
+      },
+      "preset": {
+        "title": "Choose a preset",
+        "description": "Nothing is created until you confirm the next form.",
+        "data": {
+          "preset": "Preset"
+        }
+      },
+      "habit": {
+        "title": "Define the habit",
+        "description": "Target and step use the selected unit: mL, meters, seconds or check-ins. A yes/no habit requires count and target/step 1. Frequency targets are integers. Use an IANA timezone such as Europe/Paris.",
+        "data": {
+          "name": "Name",
+          "category": "Category",
+          "kind": "Type",
+          "unit": "Unit",
+          "target": "Target",
+          "period": "Target period",
+          "step": "Button step +/−",
+          "timezone": "Timezone"
+        }
+      },
+      "created": {
+        "title": "Habit created",
+        "description": "“{name}” is saved and appears automatically in entities and cards. Add another habit or finish.",
+        "menu_options": {
+          "preset": "Start from a preset",
+          "custom": "Create a custom habit",
+          "finish": "Finish"
+        }
+      }
+    },
+    "error": {
+      "write_forbidden": "This token cannot create habits. Issue a replacement with habits:write, then reauthenticate the integration.",
+      "invalid_auth": "Token expired or revoked: reauthenticate the integration.",
+      "cannot_connect": "Backend unavailable. Retry with the same values: the creation key is preserved to prevent duplicates.",
+      "invalid_habit": "Check name, type, unit, target, step and IANA timezone. Yes/no: count, target/step 1; duration: seconds; frequency: count and an integer target.",
+      "backend_outdated": "Update the backend image: this version does not support guided creation yet.",
+      "creation_conflict": "This creation may already have succeeded with different values. Check the dashboard before starting a new flow."
+    }
+  },
+  "selector": {
+    "preset": {
+      "options": {
+        "reading": "Reading",
+        "meditation": "Meditation · 10 min/day",
+        "tidying": "Tidying",
+        "water": "Hydration · 2 L/day",
+        "produce": "Fruit and vegetables · 5 portions/day",
+        "running": "Running · 25 km/week",
+        "swimming": "Swimming · 3,000 m/week"
+      }
+    },
+    "category": {
+      "options": {
+        "mind": "Mind",
+        "daily": "Daily",
+        "sport": "Sport",
+        "nutrition": "Nutrition"
+      }
+    },
+    "kind": {
+      "options": {
+        "boolean": "Yes/no",
+        "quantity": "Quantity",
+        "duration": "Duration",
+        "frequency": "Frequency"
+      }
+    },
+    "unit": {
+      "options": {
+        "count": "Check-ins / portions",
+        "meters": "Meters",
+        "seconds": "Seconds",
+        "milliliters": "Milliliters"
+      }
+    },
+    "period": {
+      "options": {
+        "daily": "Daily",
+        "weekly": "Weekly"
+      }
+    }
+  }
 }

@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Habit Tracker",
-        "description": "Utilisez un PAT de votre utilisateur avec habits:read, statistics:read et entries:write. HTTP exige une liaison locale de confiance.",
+        "description": "Utilisez un PAT avec habits:read, statistics:read et entries:write. Ajoutez habits:write pour créer des habitudes via Configurer après la connexion. HTTP exige une liaison locale de confiance.",
         "data": {
           "url": "URL de l’API",
           "token": "Token API",
@@ -12,6 +12,13 @@
       },
       "reauth_confirm": {
         "title": "Remplacer le token API",
+        "data": {
+          "token": "Token API"
+        }
+      },
+      "reconfigure": {
+        "title": "Remplacer le token API",
+        "description": "Pour créer des habitudes depuis HA, utilisez un token du même utilisateur avec habits:write en plus des scopes de lecture et réalisation.",
         "data": {
           "token": "Token API"
         }
@@ -25,7 +32,8 @@
     "abort": {
       "already_configured": "Ce compte backend est déjà configuré.",
       "wrong_account": "Le nouveau token appartient à un autre utilisateur.",
-      "reauth_successful": "Authentification actualisée."
+      "reauth_successful": "Authentification actualisée.",
+      "reconfigure_successful": "Token mis à jour."
     }
   },
   "services": {
@@ -39,6 +47,100 @@
         "action": {
           "name": "Action"
         }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Créer mes habitudes",
+        "description": "Choisissez un preset à personnaliser ou créez votre propre habitude. La création nécessite habits:write. Les habitudes existantes restent inchangées.",
+        "menu_options": {
+          "preset": "Partir d’un preset",
+          "custom": "Créer une habitude libre",
+          "finish": "Terminer"
+        }
+      },
+      "preset": {
+        "title": "Choisir un preset",
+        "description": "Aucune habitude n’est créée avant validation du formulaire suivant.",
+        "data": {
+          "preset": "Preset"
+        }
+      },
+      "habit": {
+        "title": "Définir l’habitude",
+        "description": "Objectif et pas utilisent l’unité choisie : mL, mètres, secondes ou réalisations. Une habitude oui/non exige count et un objectif/pas de 1. Les objectifs de fréquence sont des entiers. Fuseau IANA, par exemple Europe/Paris.",
+        "data": {
+          "name": "Nom",
+          "category": "Catégorie",
+          "kind": "Type",
+          "unit": "Unité",
+          "target": "Objectif",
+          "period": "Période de l’objectif",
+          "step": "Pas des boutons +/−",
+          "timezone": "Fuseau horaire"
+        }
+      },
+      "created": {
+        "title": "Habitude créée",
+        "description": "« {name} » est enregistrée. Elle apparaît automatiquement dans les entités et cartes. Ajoutez une autre habitude ou terminez.",
+        "menu_options": {
+          "preset": "Partir d’un preset",
+          "custom": "Créer une habitude libre",
+          "finish": "Terminer"
+        }
+      }
+    },
+    "error": {
+      "write_forbidden": "Ce token ne permet pas de créer des habitudes. Ajoutez le scope habits:write à un nouveau token, puis réauthentifiez l’intégration.",
+      "invalid_auth": "Token expiré ou révoqué : réauthentifiez l’intégration.",
+      "cannot_connect": "Le backend ne répond pas. Réessayez avec les mêmes valeurs : la clé de création est conservée pour éviter un doublon.",
+      "invalid_habit": "Vérifiez le nom, le type, l’unité, l’objectif, le pas et le fuseau IANA. Oui/non : count, objectif 1 et pas 1 ; durée : secondes ; fréquence : count et objectif entier.",
+      "backend_outdated": "Mettez à jour l’image backend : cette version ne fournit pas encore la création guidée.",
+      "creation_conflict": "Cette création a peut-être déjà réussi avec d’autres valeurs. Vérifiez le dashboard avant de recommencer un nouveau parcours."
+    }
+  },
+  "selector": {
+    "preset": {
+      "options": {
+        "reading": "Lecture",
+        "meditation": "Méditation · 10 min/jour",
+        "tidying": "Rangement",
+        "water": "Hydratation · 2 L/jour",
+        "produce": "Fruits et légumes · 5 portions/jour",
+        "running": "Course · 25 km/semaine",
+        "swimming": "Natation · 3 000 m/semaine"
+      }
+    },
+    "category": {
+      "options": {
+        "mind": "Esprit",
+        "daily": "Quotidien",
+        "sport": "Sport",
+        "nutrition": "Alimentation"
+      }
+    },
+    "kind": {
+      "options": {
+        "boolean": "Oui/non",
+        "quantity": "Quantité",
+        "duration": "Durée",
+        "frequency": "Fréquence"
+      }
+    },
+    "unit": {
+      "options": {
+        "count": "Réalisations / portions",
+        "meters": "Mètres",
+        "seconds": "Secondes",
+        "milliliters": "Millilitres"
+      }
+    },
+    "period": {
+      "options": {
+        "daily": "Chaque jour",
+        "weekly": "Chaque semaine"
       }
     }
   }

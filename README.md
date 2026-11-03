@@ -30,11 +30,12 @@ You need:
 | `habits:read` | Read habits and their settings |
 | `statistics:read` | Read dashboard progress and history |
 | `entries:write` | Check/uncheck habits and add/remove quantities |
+| `habits:write` | Create habits from HA; optional for viewing and check-ins |
 
 Ask the backend administrator for its **base URL** and a token with a suitable
 expiration. Use a Habit Tracker token, distinct from GitHub credentials or a
-Home Assistant long-lived access token. Habits are created through the backend
-API; this integration displays and updates them.
+Home Assistant long-lived access token. Create habits under **Configure** after
+connecting the integration, or through the backend API.
 
 ### 2. Add the repository in HACS
 
@@ -75,7 +76,7 @@ your token.
 
 #### If Lovelace resources are managed in YAML
 
-Version 0.1.2 registers the card as a Lovelace resource in UI/storage mode.
+Since version 0.1.2, the integration registers the card as a Lovelace resource in UI/storage mode.
 If your configuration uses `resource_mode: yaml`, add this entry to the existing
 `lovelace` section in `configuration.yaml` instead:
 
@@ -83,7 +84,7 @@ If your configuration uses `resource_mode: yaml`, add this entry to the existing
 lovelace:
   resource_mode: yaml
   resources:
-    - url: /habit_tracker/frontend/0.1.2/habit-tracker-card.js
+    - url: /habit_tracker/frontend/0.2.0/habit-tracker-card.js
       type: module
 ```
 
@@ -91,28 +92,67 @@ Keep other resources. Reload Lovelace resources or restart HA, then reload your
 browser. Update the version in this URL when upgrading; the integration never
 rewrites your YAML files.
 
-### 4. Add your first card
+### 4. Create habits in HA
 
-1. Reload your browser after configuring the integration.
-2. Open an editable dashboard, or create one in **Settings → Dashboards**.
-3. Choose **Edit dashboard → Add card → Manual**.
-4. Paste this YAML, replacing the entity ID if necessary:
+Update the backend to provide `POST /api/v1/habits/setup` (current GHCR image).
+Under **Settings → Devices & services → Habit Tracker**, click **Configure**:
 
-   ```yaml
-   type: custom:habit-tracker-card
-   entity: sensor.habit_tracker_dashboard
-   mode: rings
-   ```
+1. Choose **Start from a preset** or **Create a custom habit**.
+2. Adjust name, category, type, unit, target, period, button step and timezone.
+3. Confirm: the habit and its presentation are saved together in the backend.
+4. Add another habit or select **Finish**. Entities and cards update automatically.
 
-5. Save the card. It displays the real progress of your backend habits.
+| Preset | Suggested target | Button step +/− |
+| --- | --- | --- |
+| Reading | Daily yes/no | 1 check-in |
+| Meditation | 600 seconds per day | 60 seconds |
+| Tidying | Daily yes/no | 1 check-in |
+| Hydration | 2,000 mL per day | 250 mL |
+| Fruit and vegetables | 5 portions per day | 1 portion |
+| Running | 25,000 meters per week | 1,000 meters |
+| Swimming | 3,000 meters per week | 100 meters |
 
-For the complete layout, use [dashboard.yaml](custom_components/habit_tracker/www/dashboard.yaml)
-in a new dashboard's **Raw configuration editor**, replacing the sensor ID throughout.
-The file contains a full dashboard, including views and sections.
+These are suggestions: nothing is created before confirmation. The HA timezone
+is the default; targets and steps use the units shown in the form. A network
+retry reuses the same creation key to avoid duplicates. All weekdays are eligible
+by default; eligibility windows, exceptions and editing existing habits remain
+available through the API.
 
-### 5. Choose the views you want
+If the current token lacks `habits:write`, issue a replacement for the same account
+with that scope and the three scopes above. Use the integration entry’s
+**⋮ → Reconfigure** menu to replace the token, preserving the entry and entities.
+Denied creation does not disable dashboard reads.
 
-Add more manual cards with the same `entity` and one of these modes:
+### 5. Add and configure a card visually
+
+1. Reload the browser after configuring or updating the integration.
+2. Open an editable dashboard, then **Edit → Add card**.
+3. Search for **Habit Tracker**, select the card and choose its **Dashboard sensor**
+   and **View** in the visual editor.
+4. For the **Habits** view, optionally choose a category; no filter shows all groups.
+5. Save. Future edits use the same form: YAML is optional.
+
+The Dashboard sensor is suggested automatically when available. An empty card
+shows **Créer mes habitudes**, linking to the integration configuration.
+
+<details>
+<summary>Equivalent YAML configuration</summary>
+
+```yaml
+type: custom:habit-tracker-card
+entity: sensor.habit_tracker_dashboard
+mode: rings
+```
+
+Adjust `entity` if HA assigned another ID. For the full layout, paste
+[dashboard.yaml](custom_components/habit_tracker/www/dashboard.yaml) into a dashboard’s
+raw configuration editor. Existing YAML cards remain compatible with the visual editor.
+
+</details>
+
+### 6. Choose the views you want
+
+Choose a view in the visual editor, or use the same `entity` and one of these YAML modes:
 
 | `mode` | View |
 | --- | --- |
@@ -165,7 +205,7 @@ card is the one loaded. Keep the existing integration entry.
 | Cannot connect | URL reachable from HA, base path, certificate and reverse proxy |
 | Invalid authentication or failed actions | Token expiration/revocation and the three scopes above; use HA's reauthentication flow when prompted |
 | Card type unknown | Integration configured and loaded, browser fully reloaded; card listed as a JavaScript Module in Lovelace resources; for YAML, add the declaration above |
-| Empty or unavailable cards | Actual Dashboard entity ID, backend availability and habits created through its API |
+| Empty or unavailable cards | Actual Dashboard entity ID, backend availability and habits created under Configure or through its API |
 | Updates delayed | SSE proxy buffering disabled and long connections allowed; polling falls back to every 60 seconds |
 
 To unblock version **0.1.1**, manually add

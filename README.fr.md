@@ -30,11 +30,12 @@ Prérequis :
 | `habits:read` | Lire les habitudes et leurs paramètres |
 | `statistics:read` | Lire les progressions et l'historique du dashboard |
 | `entries:write` | Cocher/décocher et ajouter/retirer des quantités |
+| `habits:write` | Créer des habitudes depuis HA ; facultatif pour la consultation et les réalisations |
 
 Demandez à l'administrateur du backend son **URL de base** et un token avec une
 expiration adaptée. Utilisez un token Habit Tracker, distinct des credentials
-GitHub ou d'un token longue durée Home Assistant. Les habitudes sont créées via
-l'API backend ; cette intégration les affiche et enregistre leurs réalisations.
+GitHub ou d'un token longue durée Home Assistant. Les habitudes se créent depuis **Configurer** sur l’intégration HA, avec un preset
+ou un formulaire libre.
 
 ### 2. Ajouter le dépôt dans HACS
 
@@ -76,7 +77,7 @@ redirections avec votre token.
 
 #### Si les ressources Lovelace sont gérées en YAML
 
-La version 0.1.2 enregistre la carte comme ressource Lovelace en mode UI/storage.
+Depuis la version 0.1.2, l’intégration enregistre la carte comme ressource Lovelace en mode UI/storage.
 Si votre configuration utilise `resource_mode: yaml`, ajoutez plutôt cette entrée
 à votre bloc `lovelace` existant dans `configuration.yaml` :
 
@@ -84,7 +85,7 @@ Si votre configuration utilise `resource_mode: yaml`, ajoutez plutôt cette entr
 lovelace:
   resource_mode: yaml
   resources:
-    - url: /habit_tracker/frontend/0.1.2/habit-tracker-card.js
+    - url: /habit_tracker/frontend/0.2.0/habit-tracker-card.js
       type: module
 ```
 
@@ -92,29 +93,72 @@ Conservez les autres ressources. Rechargez les ressources Lovelace ou redémarre
 HA, puis rechargez le navigateur. Actualisez la version dans cette URL lors des
 mises à jour ; l'intégration ne modifie pas vos fichiers YAML.
 
-### 4. Ajouter la première carte
+### 4. Créer vos habitudes dans HA
 
-1. Rechargez le navigateur après configuration de l'intégration.
-2. Ouvrez un dashboard modifiable, ou créez-en un dans **Paramètres → Tableaux de bord**.
-3. Choisissez **Modifier le tableau de bord → Ajouter une carte → Manuel**.
-4. Collez ce YAML, en adaptant l'identifiant du capteur si nécessaire :
+Mettez à jour le backend pour disposer de `POST /api/v1/habits/setup` (image GHCR
+actuelle). Dans **Paramètres → Appareils et services → Habit Tracker**, cliquez
+sur **Configurer** pour ouvrir le parcours de création :
 
-   ```yaml
-   type: custom:habit-tracker-card
-   entity: sensor.habit_tracker_dashboard
-   mode: rings
-   ```
+1. Choisissez **Partir d’un preset** ou **Créer une habitude libre**.
+2. Adaptez nom, catégorie, type, unité, objectif, période, pas des boutons et fuseau.
+3. Validez : l’habitude et sa présentation sont enregistrées ensemble dans le backend.
+4. Ajoutez une autre habitude ou choisissez **Terminer**. Les nouvelles entités et
+   les cartes sont actualisées automatiquement.
 
-5. Enregistrez. La carte affiche les vraies progressions des habitudes du backend.
+| Preset | Objectif proposé | Pas +/− |
+| --- | --- | --- |
+| Lecture | Oui/non quotidien | 1 réalisation |
+| Méditation | 600 secondes par jour | 60 secondes |
+| Rangement | Oui/non quotidien | 1 réalisation |
+| Hydratation | 2 000 mL par jour | 250 mL |
+| Fruits et légumes | 5 portions par jour | 1 portion |
+| Course | 25 000 mètres par semaine | 1 000 mètres |
+| Natation | 3 000 mètres par semaine | 100 mètres |
 
-Pour la disposition complète, utilisez [dashboard.yaml](custom_components/habit_tracker/www/dashboard.yaml)
-dans l'**éditeur de configuration brute** d'un nouveau tableau de bord, en remplaçant
-partout l'identifiant du capteur. Le fichier contient un dashboard entier avec vues
-et sections.
+Ce sont des suggestions : rien n’est créé avant validation. Le fuseau HA est
+proposé par défaut ; unités et objectifs restent ceux affichés dans le formulaire.
+Une erreur réseau réutilise la même clé de création pour éviter un doublon.
+Les jours d’éligibilité sont tous les jours par défaut ; les fenêtres horaires,
+exceptions et modifications d’habitudes existantes restent accessibles via l’API.
 
-### 5. Choisir les vues
+Si le token actuel n’a pas `habits:write`, émettez un token de remplacement pour
+le même utilisateur avec ce scope et les trois scopes précédents. Dans le menu
+**⋮ de l’entrée d’intégration → Reconfigurer**, remplacez le token ; conservez
+l’entrée et les entités existantes. Un refus de création ne bloque pas les lectures.
 
-Ajoutez d'autres cartes manuelles avec la même `entity` et l'un de ces modes :
+### 5. Ajouter et configurer une carte visuellement
+
+1. Rechargez le navigateur après configuration ou mise à jour de l’intégration.
+2. Ouvrez un dashboard modifiable, puis **Modifier → Ajouter une carte**.
+3. Recherchez **Habit Tracker**, sélectionnez la carte, puis choisissez son capteur
+   **Dashboard** et sa **Vue** dans l’éditeur visuel.
+4. Pour la vue **Habitudes**, choisissez éventuellement une catégorie ; sans filtre,
+   toutes les catégories sont affichées.
+5. Enregistrez. L’édition ultérieure utilise le même formulaire : aucun YAML requis.
+
+Le capteur Dashboard est proposé automatiquement lorsqu’il est disponible.
+Si aucune habitude n’existe, la carte propose **Créer mes habitudes**, qui renvoie
+vers la configuration de l’intégration.
+
+<details>
+<summary>Configuration YAML équivalente</summary>
+
+```yaml
+type: custom:habit-tracker-card
+entity: sensor.habit_tracker_dashboard
+mode: rings
+```
+
+Adaptez `entity` si HA a choisi un autre identifiant. Pour la disposition complète,
+utilisez [dashboard.yaml](custom_components/habit_tracker/www/dashboard.yaml) dans
+l’éditeur de configuration brute d’un tableau de bord. Les anciennes cartes YAML
+restent compatibles avec l’éditeur visuel.
+
+</details>
+
+### 6. Choisir les vues
+
+Choisissez une vue dans l’éditeur visuel, ou son équivalent `mode` en YAML :
 
 | `mode` | Vue |
 | --- | --- |
@@ -168,9 +212,9 @@ pour charger la carte embarquée. Conservez l'intégration existante.
 | Symptôme | À vérifier |
 | --- | --- |
 | Connexion impossible | URL accessible depuis HA, chemin de base, certificat et reverse proxy |
-| Authentification invalide ou actions refusées | Expiration/révocation du token et les trois scopes ; utiliser la réauthentification proposée par HA |
+| Authentification invalide ou actions refusées | Expiration/révocation du token et les scopes requis pour l’action ; utiliser Reconfigurer pour remplacer le token |
 | Type de carte inconnu | Intégration configurée et chargée, navigateur complètement rechargé ; carte présente dans les ressources Lovelace en type Module JavaScript ; en YAML, ajouter la déclaration ci-dessus |
-| Carte vide ou indisponible | Identifiant réel du capteur Dashboard, disponibilité du backend, habitudes créées via son API |
+| Carte vide ou indisponible | Identifiant réel du capteur Dashboard, disponibilité du backend, habitudes créées via Configurer ou son API |
 | Mises à jour lentes | Buffering SSE désactivé au proxy et connexions longues autorisées ; secours toutes les 60 secondes |
 
 Pour débloquer une version **0.1.1**, ajoutez manuellement

@@ -1,5 +1,10 @@
 /* Connected Lovelace card. Only HA states/services: no API credentials here. */
 class HabitTrackerCard extends HTMLElement {
+  static getConfigElement() { return document.createElement("habit-tracker-card-editor"); }
+  static getStubConfig(hass) {
+    const entity = Object.values(hass.states).find(state => Array.isArray(state.attributes.groups))?.entity_id;
+    return {type: "custom:habit-tracker-card", entity: entity || "", mode: "rings"};
+  }
   constructor() { super(); this.attachShadow({mode: "open"}); this._pending = false; }
   setConfig(config) {
     const modes = ["rings", "habits", "nutrition", "sport", "weekly", "heatmap"];
@@ -74,7 +79,7 @@ class HabitTrackerCard extends HTMLElement {
     if (!state || state.state === "unavailable" || state.state === "unknown" && !state.attributes?.groups) body = '<p role="status">Dashboard indisponible. Vérifiez l’intégration Habit Tracker et sa connexion.</p>';
     else {
       const data = state.attributes, mode = this._config.mode;
-      if (!data.groups?.length) body = '<p>Aucune habitude. Créez vos objectifs dans l’API Habit Tracker.</p>';
+      if (!data.groups?.some(group => group.habits?.length)) body = '<h2>Votre première habitude</h2><p>Partez d’un preset ou créez votre objectif dans la configuration Habit Tracker.</p><a class="setup-link" href="/config/integrations/integration/habit_tracker">Créer mes habitudes</a>';
       else if (mode === "rings") body = this._rings(data.groups);
       else if (mode === "weekly") body = this._weekly(data.weekly);
       else if (mode === "heatmap") body = this._heatmap(data.heatmap);
@@ -97,6 +102,7 @@ class HabitTrackerCard extends HTMLElement {
 HabitTrackerCard.css = `
 :host{display:block;container-type:inline-size;color:var(--primary-text-color);font-family:var(--primary-font-family,inherit)}
 *{box-sizing:border-box} ha-card{display:block;width:100%;padding:24px;border-radius:24px;background:var(--ha-card-background,var(--card-background-color));color:var(--primary-text-color);box-shadow:none}
+.setup-link{display:inline-block;margin-top:8px;padding:10px 16px;border-radius:8px;background:var(--primary-color);color:var(--text-primary-color);font-weight:600;text-decoration:none}.setup-link:focus-visible{outline:2px solid var(--primary-text-color);outline-offset:3px}
 h2{font-size:18px;line-height:1.4;margin:0 0 12px}p{line-height:1.6;margin:8px 0}button,progress{accent-color:var(--habit-accent,var(--primary-color))}
 .overview{display:grid;grid-template-columns:minmax(180px,230px) minmax(0,1fr);gap:28px;align-items:center}.overview svg{width:100%;height:auto}.overview text{fill:currentColor;font-size:25px;font-weight:700}.overview .caption{font-size:10px;font-weight:500}
 .line{display:flex;align-items:center;gap:12px}.line strong{display:flex;align-items:center;gap:8px;flex:1;min-width:0;overflow-wrap:anywhere}.line b,.line>span{font-variant-numeric:tabular-nums;white-space:nowrap}.line h2{flex:1;margin:0}
@@ -108,6 +114,42 @@ button{width:44px;height:44px;border:0;border-radius:50%;background:var(--second
 .heatmap{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,1fr);grid-template-columns:repeat(13,minmax(0,1fr));gap:4px;margin-top:22px}.cell{display:block;aspect-ratio:1;border-radius:3px;background:color-mix(in srgb,var(--primary-color,#70a36b) calc(15% + var(--intensity)*85%),var(--ha-card-background,var(--card-background-color)))}.empty{background:var(--divider-color);opacity:.45}.error{color:var(--error-color);font-size:13px}.error:empty{display:none}::selection{background:var(--primary-color);color:var(--text-primary-color)}
 @container(max-width:600px){ha-card{padding:20px}.overview{grid-template-columns:1fr;gap:14px}.overview svg{max-width:220px;justify-self:center}.chart{gap:8px}.heatmap{gap:3px}.line{gap:8px}.line strong{font-size:14px}.line b{font-size:14px}}
 `;
+
+class HabitTrackerCardEditor extends HTMLElement {
+  constructor() { super(); this.attachShadow({mode: "open"}); }
+  setConfig(config) { this._config = {...config}; this._render(); }
+  set hass(hass) { this._hass = hass; this._render(); }
+  _render() {
+    if (!this._config || !this._hass) return;
+    const fr = this._hass.locale?.language?.startsWith("fr");
+    const modes = ["rings", "habits", "nutrition", "sport", "weekly", "heatmap"];
+    const modeLabels = fr ? ["Anneaux", "Habitudes", "Alimentation", "Sport", "Comparaison hebdomadaire", "Historique"] : ["Rings", "Habits", "Nutrition", "Sport", "Weekly comparison", "History"];
+    const categories = ["", "mind", "daily", "sport", "nutrition"];
+    const categoryLabels = fr ? ["Toutes les catégories", "Esprit", "Quotidien", "Sport", "Alimentation"] : ["All categories", "Mind", "Daily", "Sport", "Nutrition"];
+    const dashboards = Object.values(this._hass.states).filter(state => Array.isArray(state.attributes.groups)).map(state => state.entity_id);
+    if (!this._form) {
+      this.shadowRoot.innerHTML = '<style>:host{display:block}ha-form{display:block}</style><ha-form></ha-form>';
+      this._form = this.shadowRoot.querySelector("ha-form");
+      this._form.addEventListener("value-changed", event => {
+        event.stopPropagation();
+        const config = {...this._config, ...event.detail.value, type: "custom:habit-tracker-card"};
+        if (config.mode !== "habits" || !config.category) delete config.category;
+        this._config = config;
+        this.dispatchEvent(new CustomEvent("config-changed", {detail: {config}, bubbles: true, composed: true}));
+        this._render();
+      });
+    }
+    this._form.hass = this._hass;
+    this._form.data = this._config;
+    this._form.computeLabel = field => ({entity: fr ? "Capteur Dashboard" : "Dashboard sensor", mode: fr ? "Vue" : "View", category: fr ? "Catégorie" : "Category"}[field.name]);
+    this._form.schema = [
+      {name: "entity", required: true, selector: {entity: {domain: "sensor", ...(dashboards.length ? {include_entities: dashboards} : {})}}},
+      {name: "mode", required: true, selector: {select: {mode: "dropdown", options: modes.map((value, i) => ({value, label: modeLabels[i]}))}}},
+      ...(this._config.mode === "habits" ? [{name: "category", selector: {select: {mode: "dropdown", options: categories.map((value, i) => ({value, label: categoryLabels[i]}))}}}] : []),
+    ];
+  }
+}
+if (!customElements.get("habit-tracker-card-editor")) customElements.define("habit-tracker-card-editor", HabitTrackerCardEditor);
 if (!customElements.get("habit-tracker-card")) customElements.define("habit-tracker-card", HabitTrackerCard);
 window.customCards = window.customCards || [];
-window.customCards.push({type:"habit-tracker-card",name:"Habit Tracker",description:"Dashboard connecté, objectifs, actions et historique réels"});
+window.customCards.push({type:"habit-tracker-card",name:"Habit Tracker",description:"Dashboard connecté, objectifs, actions et historique réels", preview: true});

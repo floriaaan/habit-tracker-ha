@@ -13,8 +13,16 @@ class InvalidAuth(Exception):
     """Token is missing, expired, revoked, or lacks required scopes."""
 
 
+class Forbidden(InvalidAuth):
+    """Token is valid but does not grant the requested operation."""
+
+
 class ApiError(Exception):
     """Backend rejected a request or is unavailable."""
+
+    def __init__(self, message: str, status: int | None = None):
+        super().__init__(message)
+        self.status = status
 
 
 def validate_url(value: str, allow_http: bool) -> str:
@@ -41,10 +49,12 @@ class HabitApi:
             method, self.url + path, headers=headers, json=body,
             allow_redirects=False, timeout=aiohttp.ClientTimeout(total=9),
         ) as response:
-            if response.status in (401, 403):
+            if response.status == 403:
+                raise Forbidden
+            if response.status == 401:
                 raise InvalidAuth
             if response.status >= 300:
-                raise ApiError(f"Backend returned HTTP {response.status}")
+                raise ApiError(f"Backend returned HTTP {response.status}", response.status)
             # Bound the body even if the server/proxy is misconfigured.
             data = bytearray()
             async for chunk in response.content.iter_chunked(65536):
@@ -64,11 +74,15 @@ class HabitApi:
 
     async def action(self, habit_id: str, action: str):
         # One key per human action, reused after an ambiguous transport failure.
-        key = str(uuid4())
+        return await self._write(f"/api/v1/habits/{habit_id}/actions", {"action": action}, str(uuid4()))
+
+    async def create_habit(self, habit, presentation, key):
+        return await self._write("/api/v1/habits/setup", {"habit": habit, "presentation": presentation}, key)
+
+    async def _write(self, path, body, key):
         for attempt in range(2):
             try:
-                return await self.request("POST", f"/api/v1/habits/{habit_id}/actions",
-                                          body={"action": action}, key=key)
+                return await self.request("POST", path, body=body, key=key)
             except (aiohttp.ClientError, asyncio.TimeoutError):
                 if attempt:
                     raise
